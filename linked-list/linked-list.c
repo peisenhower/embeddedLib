@@ -18,6 +18,8 @@
  /*************************************************************************
   * Static Function Prototypes
   *************************************************************************/
+static int priv_poolRemove(const linked_list_t *list, link_t **link);
+static int priv_poolAdd(linked_list_t *list, link_t *add);
  
  /*************************************************************************
   * Static Variables 
@@ -55,7 +57,13 @@ int ll_addHead(linked_list_t *list, void *data, size_t size)
     if (list->poolSize == 0)
         return EL_ERR_MEM; 
 
+    link_t *link; 
+    int result = priv_poolRemove(list, &link); 
 
+    if (result) 
+        return result; 
+
+    list->head = link; 
 
 
     return EL_ERR_NONE;
@@ -95,11 +103,15 @@ static int priv_poolRemove(const linked_list_t *list, link_t **link)
 {
     for (int i = 0; i < list->poolSize; i++) 
     {
-
-
+        if (list->pool[i].flags & LL_FLAG_POOL) 
+        {
+            **link = list->pool[i];
+            list->pool[i].flags &= ~LL_FLAG_POOL; 
+            list->poolSize -= 1;
+            return EL_ERR_NONE; 
+        }
     }
-
-    return EL_ERR_NONE; 
+    return EL_ERR_MEM; 
 }
 
 /** 
@@ -107,5 +119,15 @@ static int priv_poolRemove(const linked_list_t *list, link_t **link)
  */
 static int priv_poolAdd(linked_list_t *list, link_t *add)
 {
-
+    for (int i = 0; i < list->poolSize; i++) 
+    {
+        /* match the pointers */ 
+        if (&list->pool[i] == add) 
+        {
+            list->pool[i].flags |= LL_FLAG_POOL; 
+            list->poolSize += 1;
+            return EL_ERR_NONE; 
+        }
+    }
+    return EL_ERR_FAILED; 
 }

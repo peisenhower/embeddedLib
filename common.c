@@ -23,3 +23,7 @@ int el_errorToString(int error, chari **string)
     }
     return EL_ERR_NONE; 
 }
+
+
+
+
