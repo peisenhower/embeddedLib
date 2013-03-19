@@ -32,4 +32,8 @@ typedef struct cb_s
 
 
 int cb_init(cb_t *cb, uint8_t *buffer, size_t size);
+int cb_write(cb_t *cb, const uint8_t *data, size_t length);
+int cb_read(cb_t *cb, uint8_t *data, size_t length);
+
+
 

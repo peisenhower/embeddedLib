@@ -3,6 +3,7 @@
  *************************************************************************/
 #include <stdio.h>
 #include "circular-buffer.h"
+#include "common.h"
 
 /*************************************************************************
  * Local Defines
@@ -45,6 +46,14 @@ int main(int argc, const char *argv[])
     printf("CB After Init\r\n");
     print_cb(&cb);
 
+    uint8_t first[] = "Whats up, yo!";
+
+    printf("Size of first %lu\n", COUNTOF(first));
+
+    int status = cb_write(&cb, first, COUNTOF(first));
+    if (status)
+        printf("Write Failed: %d\n", status);
+    print_cb(&cb);
 
     return 0;
 }
@@ -53,11 +62,12 @@ int main(int argc, const char *argv[])
 
 static int print_cb(cb_t *cb)
 {
-    printf("RI: %5lu   WI: %5lu   Size: %5lu   Lock: %d\r\n", 
-            cb->read_index, 
-            cb->write_index, 
-            cb->buffer_size, 
-            cb->lock);
+    printf("RI: %5lu   WI: %5lu   Size: %5lu   Lock: %d Count: %lu\r\n", 
+            cb->readIndex, 
+            cb->writeIndex, 
+            cb->bufferSize, 
+            cb->lock,
+            cb->count);
 
     return 0;
 }

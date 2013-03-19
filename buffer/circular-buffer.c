@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "circular-buffer.h"
 #include "compiler.h"
+#include "common.h"
 
 /******************************************************************************
  * Local Defines
@@ -21,8 +22,10 @@
  ******************************************************************************/
 #define PRIV_OVERFLOW(cb)       \
             do {                \
-                if ( cb->count >= cb->bufferSize )  \
-                    return -1;
+                if ( cb->count >= cb->bufferSize ) { \
+                    cb->flags |= CB_FLAG_OVERFLOW; \
+                    return -1;  \
+            }} while (0)
 
 /******************************************************************************
  * Global Variables
@@ -50,6 +53,7 @@ static inline void priv_incQuickWrite(cb_t *cb) ATTR_INLINE;
 static inline void priv_incrementRead(cb_t *cb)
 {
     cb->readIndex++;
+    cb->count--;
     if (cb->readIndex >= cb->bufferSize)
         cb->readIndex = 0;
 }
@@ -60,6 +64,7 @@ static inline void priv_incrementRead(cb_t *cb)
 static inline void priv_incrementWrite(cb_t *cb)
 {
     cb->writeIndex++;
+    cb->count++;
     if (cb->writeIndex >= cb->bufferSize)
         cb->writeIndex = 0;
 }
@@ -109,18 +114,28 @@ cb_read(cb_t *cb, uint8_t *data, size_t length)
 
     if (length == 0)
         return 0;
-    for (int i = 0; i < length; i++)
-    {
+    for (size_t i = 0; i < length; i++) {
         data[i] = cb->buffer[cb->readIndex];
         priv_incrementRead(cb);
+        PRIV_OVERFLOW(cb);
     }
 
     return 0;
 }
 
-int 
-cb_write(cb_t *cb, uint8_t *data, size_t length)
+int
+cb_write(cb_t *cb, const uint8_t *data, size_t length)
 {
+    RETURN_FAIL_IF (cb == NULL);
+    RETURN_FAIL_IF (data == NULL);
+    RETURN_FAIL_IF (length > (cb->bufferSize - cb->count));
+
+    for (size_t i = 0; i < length; i++) {
+        cb->buffer[cb->writeIndex] = data[i];
+        priv_incrementWrite(cb);
+        PRIV_OVERFLOW(cb);
+    }
+
     return 0;
 }
 

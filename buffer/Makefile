@@ -5,19 +5,27 @@ CC 			=  clang
 CFLAGS 		= -ggdb -Wall -std=gnu99
 FFLAGS		= 
 DEPS		= 
+INC 		= -I../
 
-all:  runner
+all:  test
 
 %.o: %.c $(DEPS)
-	$(CC) $(CFLAGS) $(FFLAGS) -c  $< -o $@
+	@echo "CC 	$<"
+	@$(CC) $(CFLAGS) $(FFLAGS) $(INC) -c  $< -o $@
 
 
 OBJS=	circular-buffer.o	\
 		runner.o
 
-runner: $(OBJS)
-	$(CC) $(CFLAGS) $(FFLAGS) -o $@ $(OBJS)
+test: $(OBJS)
+	@echo "LD 	$^"
+	@$(CC) $(FFLAGS) -o $@ $(OBJS)
 
 clean:
-	-rm *.o 
-	-rm runner
+	@echo "Cleaning..."
+	@-rm *.o 
+	@-rm test
+	@echo "Done"
+
+
+
