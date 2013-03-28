@@ -1,4 +1,10 @@
-
+/**
+ * @file     circular-buffer.c
+ * @authors Peter Eisenhower
+ * @copyright Peter Eisenhower 2013
+ *
+ * @brief Generic circular buffer
+ */
 
 /******************************************************************************
  * Includes 
@@ -12,20 +18,22 @@
  * Local Defines
  ******************************************************************************/
 #ifndef RETURN_FAIL_IF
-#define RETURN_FAIL_IF(x) do {\
-                            if (x) return -1;\
-                          } while (0)
+#define RETURN_FAIL_IF(x)                       \
+            do {                                \
+                if (x) return CB_ERROR_FAIL;    \
+            } while (0)
 #endif
+
+#define PRIV_OVERFLOW(cb)                               \
+            do {                                        \
+                if ( cb->count > cb->bufferSize ) {    \
+                    cb->flags |= CB_FLAG_OVERFLOW;      \
+                    return CB_ERROR_OVERFLOW;           \
+            }} while (0)
 
 /******************************************************************************
  * Local Types and Typedefs
  ******************************************************************************/
-#define PRIV_OVERFLOW(cb)       \
-            do {                \
-                if ( cb->count >= cb->bufferSize ) { \
-                    cb->flags |= CB_FLAG_OVERFLOW; \
-                    return -1;  \
-            }} while (0)
 
 /******************************************************************************
  * Global Variables
@@ -101,12 +109,24 @@ int cb_init(cb_t *cb, uint8_t *buffer, size_t size)
     cb->lock = 0;
     cb->readIndex = 0;
     cb->writeIndex = 0;
+    cb->count = 0;
 
     return 0;
 }
 
-int
-cb_read(cb_t *cb, uint8_t *data, size_t length)
+int cb_reset(cb_t *cb)
+{
+    RETURN_FAIL_IF (cb == NULL);
+
+    cb->lock = 0;
+    cb->readIndex = 0;
+    cb->writeIndex = 0;
+    cb->count = 0;
+
+    return 0;
+}
+
+int cb_read(cb_t *cb, uint8_t *data, size_t length)
 {
     RETURN_FAIL_IF (cb == NULL);
     RETURN_FAIL_IF (data == NULL);
@@ -123,12 +143,12 @@ cb_read(cb_t *cb, uint8_t *data, size_t length)
     return 0;
 }
 
-int
-cb_write(cb_t *cb, const uint8_t *data, size_t length)
+int cb_write(cb_t *cb, const uint8_t *data, size_t length)
 {
     RETURN_FAIL_IF (cb == NULL);
     RETURN_FAIL_IF (data == NULL);
-    RETURN_FAIL_IF (length > (cb->bufferSize - cb->count));
+    if (length > (cb->bufferSize - cb->count))
+        return CB_ERROR_MEM;
 
     for (size_t i = 0; i < length; i++) {
         cb->buffer[cb->writeIndex] = data[i];
@@ -139,5 +159,53 @@ cb_write(cb_t *cb, const uint8_t *data, size_t length)
     return 0;
 }
 
+int cb_isrGet(cb_t *cb, uint8_t *data, bool *isEmpty)
+{
+    RETURN_FAIL_IF(cb == NULL);
+    RETURN_FAIL_IF(data == NULL);
+    RETURN_FAIL_IF(isEmpty == NULL);
 
+
+    if (cb->lock)
+        return CB_ERROR_LOCK;
+
+    cb->lock = 1;
+
+    if (cb->count == 0) {
+        *isEmpty = true;
+        return CB_ERROR_UNDERFLOW;
+    }
+
+    *data = cb->buffer[cb->readIndex];
+    priv_incrementRead(cb);
+
+    if (cb->count == 0)
+        *isEmpty = true;
+    else
+        *isEmpty = false;
+
+    cb->lock = 0;
+    return 0;
+}
+
+int cb_isrPut(cb_t *cb, uint8_t data)
+{
+    RETURN_FAIL_IF(cb == NULL);
+
+    if (cb->lock)
+        return CB_ERROR_LOCK;
+
+    cb->lock = 1;
+
+    if (cb->count == cb->bufferSize) {
+        return CB_ERROR_MEM;
+    }
+
+    cb->buffer[cb->writeIndex] = data;
+    priv_incrementWrite(cb);
+    PRIV_OVERFLOW(cb);
+
+    cb->lock = 0;
+    return 0;
+}
 

@@ -3,3 +3,4 @@ buffer/runner.o
 sums/crc.o
 sums/lrc-test.o
 sums/lrc.o
+buffer/test
