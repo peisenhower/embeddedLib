@@ -3,4 +3,10 @@ buffer/runner.o
 sums/crc.o
 sums/lrc-test.o
 sums/lrc.o
+<<<<<<< HEAD
 buffer/test
+=======
+project/Debug
+project/libembed.dep
+project/settings
+>>>>>>> e941a2501b1a44bf2c425c28fb5d4c56dd3dd0d2

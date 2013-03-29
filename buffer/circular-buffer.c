@@ -77,6 +77,7 @@ static inline void priv_incrementWrite(cb_t *cb)
         cb->writeIndex = 0;
 }
 
+#if QUICK_READ
 /**
  * Only to be used if buffer is a power of 2
  */
@@ -94,6 +95,7 @@ static inline void priv_incQuickWrite(cb_t *cb)
     cb->writeIndex++;
     cb->writeIndex &= ~cb->bufferSize;
 }
+#endif
 
 /**
  * fill out the struct
