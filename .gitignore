@@ -3,3 +3,6 @@ buffer/runner.o
 sums/crc.o
 sums/lrc-test.o
 sums/lrc.o
+project/Debug
+project/libembed.dep
+project/settings
