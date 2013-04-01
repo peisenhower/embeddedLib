@@ -175,6 +175,7 @@ int cb_isrGet(cb_t *cb, uint8_t *data, bool *isEmpty)
 
     if (cb->count == 0) {
         *isEmpty = true;
+        cb->lock = 0;
         return CB_ERROR_UNDERFLOW;
     }
 
