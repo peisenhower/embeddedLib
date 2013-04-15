@@ -31,6 +31,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 
 typedef enum {
@@ -38,25 +39,25 @@ typedef enum {
     LL_STATE_POOL       = 1,
     LL_STATE_RESERVED   = 2,
     LL_STATE_LIST       = 3,
-} ll_state_t
+} ll_state_t;
 
 
 typedef struct link_s
 {
-    volatile struct link_s   *before;
-    volatile struct link_s   *after;
-    volatile uint8_t 	      state;
-    volatile uint8_t          flags;
+    struct link_s   *before;
+    struct link_s   *after;
+    uint8_t 	      state;
+    uint8_t          flags;
     uint8_t                  *data;
     size_t                    size;
 } link_t;
 
 typedef struct linked_list_s
 {
-    volatile link_t      *head;
-    volatile link_t      *tail;
-    link_t               *pool[];
-    size_t                poolSize;
+    link_t       *head;
+    link_t       *tail;
+    link_t               **pool;
+    size_t                 poolSize;
 } linked_list_t;
 
 
@@ -79,4 +80,11 @@ enum
  */
 typedef void (*critical_t)(bool enable);
 
+int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_t criticalFunction);
+int ll_pullHead(linked_list_t *list, link_t **link);
+int ll_pullTail(linked_list_t *list, link_t **link);
+int ll_pushHead(linked_list_t *list, link_t *link);
+int ll_pushTail(linked_list_t *list, link_t *link);
+int ll_reserve(linked_list_t *list, link_t **link);
+int ll_release(linked_list_t *list, link_t *link);
 

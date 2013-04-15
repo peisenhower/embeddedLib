@@ -35,11 +35,12 @@ static int priv_release(linked_list_t *list, link_t *link);
 static int priv_pushTail(linked_list_t *list, link_t *link);
 static int priv_pushHead(linked_list_t *list, link_t *link);
 static int priv_pullTail(linked_list_t *list, link_t **link);
+static int priv_pullHead(linked_list_t *list, link_t **link);
 
  /*************************************************************************
   * Static Variables
   *************************************************************************/
-static critical_t *critical = NULL;
+static critical_t critical = NULL;
 
  /*************************************************************************
   * Functions
@@ -49,11 +50,11 @@ static critical_t *critical = NULL;
 /*******************************************************************************
 * Create
 *******************************************************************************/
-int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_t *criticalFunction)
+int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_t criticalFunction)
 {
     PARAM_CHECK (list == NULL);
     PARAM_CHECK (links == NULL);
-    PARAM_CHECK (length == 0);
+    PARAM_CHECK (linksCount == 0);
 
     critical = criticalFunction;
 
@@ -75,49 +76,63 @@ int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_
 /*******************************************************************************
 * Pull
 *******************************************************************************/
-int priv_pullHead(linked_list_t *list, link_t **link)
+int ll_pullHead(linked_list_t *list, link_t **link)
+{
+    CRITICAL(true);
+    int status = priv_pullHead(list, link);
+    CRITICAL(false);
+    return status;
+}
+static int priv_pullHead(linked_list_t *list, link_t **link)
 {
     PARAM_CHECK(list == NULL);
     PARAM_CHECK(link == NULL);
     PARAM_CHECK(list->head == NULL);
 
-    link_t *link = list->head;
+    *link = list->head;
 
     if (list->head == list->tail){
         /* Only item in queue */
-        list->head == NULL;
-        list->tail == NULL;
+        list->head = NULL;
+        list->tail = NULL;
     } else {
         list->head = list->head->after;
         list->head->before = NULL;
     }
 
-    *link->after = NULL;
-    *link->before = NULL;
-    *link->state = LL_STATE_RESERVED;
+    (*link)->after = NULL;
+    (*link)->before = NULL;
+    (*link)->state = LL_STATE_RESERVED;
     return LL_ERR_NONE;
 }
 
+int ll_pullTail(linked_list_t *list, link_t **link)
+{
+    CRITICAL(true);
+    int status = priv_pullTail(list, link);
+    CRITICAL(false);
+    return status;
+}
 int priv_pullTail(linked_list_t *list, link_t **link)
 {
     PARAM_CHECK(list == NULL);
     PARAM_CHECK(link == NULL);
     PARAM_CHECK(list->tail == NULL);
 
-    link_t *link = list->tail;
+    *link = list->tail;
 
     if (list->head == list->tail){
         /* Only item in queue */
-        list->head == NULL;
-        list->tail == NULL;
+        list->head = NULL;
+        list->tail = NULL;
     } else {
         list->tail = list->tail->before;
         list->tail->after = NULL;
     }
 
-    *link->after = NULL;
-    *link->before = NULL;
-    *link->state = LL_STATE_RESERVED;
+    (*link)->after = NULL;
+    (*link)->before = NULL;
+    (*link)->state = LL_STATE_RESERVED;
     return LL_ERR_NONE;
 }
 
@@ -127,7 +142,7 @@ int priv_pullTail(linked_list_t *list, link_t **link)
 int ll_pushHead(linked_list_t *list, link_t *link)
 {
     CRITICAL(true);
-    int status = priv_addHead(list, link);
+    int status = priv_pushHead(list, link);
     CRITICAL(false);
     return status;
 }
@@ -141,8 +156,8 @@ static int priv_pushHead(linked_list_t *list, link_t *link)
         /* Only item in the list, its both head and tail */
         list->head = link;
         list->tail = link;
-        link->before == NULL;
-        link->tail == NULL;
+        link->before = NULL;
+        link->after = NULL;
     } else {
         /* Set the pointer to the second item in the list */
         link->after = list->head;
@@ -161,7 +176,7 @@ static int priv_pushHead(linked_list_t *list, link_t *link)
 int ll_pushTail(linked_list_t *list, link_t *link)
 {
     CRITICAL(true);
-    int status = priv_addTail(list, link);
+    int status = priv_pushTail(list, link);
     CRITICAL(false);
     return status;
 }
@@ -171,15 +186,12 @@ static int priv_pushTail(linked_list_t *list, link_t *link)
     PARAM_CHECK (list == NULL);
     PARAM_CHECK (link == NULL);
 
-    if (list->poolSize == NULL)
-        return LL_ERR_MEM;
-
     if (list->head == list->tail){
         /* Only item in the list, its both head and tail */
         list->head = link;
         list->tail = link;
-        link->before == NULL;
-        link->tail == NULL;
+        link->before = NULL;
+        link->after = NULL;
     } else {
         /* Set the pointer to the second to last item in the list */
         link->before = list->tail;
@@ -225,7 +237,7 @@ static int priv_reserve(linked_list_t *list, link_t **link)
     int index;
     for (index = 0; index < list->poolSize; index++)
     {
-        if (list->pool[index].state == LL_STATE_POOL)
+        if (list->pool[index]->state == LL_STATE_POOL)
             break;
     }
     if (index >= list->poolSize) {
@@ -234,11 +246,11 @@ static int priv_reserve(linked_list_t *list, link_t **link)
     }
 
     *link = list->pool[index];
-    *link->state = LL_STATE_RESERVED;
+    (*link)->state = LL_STATE_RESERVED;
 
     /* Set the pointer to the second item in the list */
-    *link->after = NULL;
-    *link->before = NULL;
+    (*link)->after = NULL;
+    (*link)->before = NULL;
 
     return LL_ERR_NONE;
 }
