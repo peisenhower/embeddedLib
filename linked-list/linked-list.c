@@ -1,133 +1,154 @@
  /*************************************************************************
-  * Includes 
+  * Includes
   *************************************************************************/
 #include "linked-list.h"
- 
+#include <string.h>
+
  /*************************************************************************
   * Local Defines
   *************************************************************************/
- 
+#define CRITICAL(x)                     \
+            do {                        \
+                if (critical != NULL){  \
+                    critical(x);}       \
+            } while (0)
+
+#define PARAM_CHECK(x)                      \
+            do {                            \
+                if (x){                     \
+                    return LL_ERR_PARAM;}   \
+            } while (0)
+
  /*************************************************************************
   * Local Types and Typedefs
   *************************************************************************/
- 
+
  /*************************************************************************
   * Global Variables
   *************************************************************************/
- 
+
  /*************************************************************************
   * Static Function Prototypes
   *************************************************************************/
-static int priv_poolRemove(const linked_list_t *list, link_t **link);
-static int priv_poolAdd(linked_list_t *list, link_t *add);
- 
+
+
  /*************************************************************************
-  * Static Variables 
+  * Static Variables
   *************************************************************************/
- 
+static critical_t *critical = NULL;
+
  /*************************************************************************
   * Functions
   *************************************************************************/
 
-
-int ll_create(linked_list_t *list, link_t *links[], size_t linksCount)
+int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_t *criticalFunction)
 {
 
-    if (list == NULL)
-        return EL_ERR_PARAM; 
-    if (links == NULL) 
-        return EL_ERR_PARAM; 
-    if (length == 0)
-        return EL_ERR_PARAM; 
+    PARAM_CHECK (list == NULL);
+    PARAM_CHECK (links == NULL);
+    PARAM_CHECK (length == 0);
 
-    list->head = NULL; 
-    list->tail = NULL; 
-    list->pool = links; 
-    list->poolSize = linksCount;  
+    critical = criticalFunction;
 
-    return EL_ERR_NONE;
+    list->head = NULL;
+    list->tail = NULL;
+    list->pool = links;
+    list->poolSize = linksCount;
+
+    return LL_ERR_NONE;
 }
 
-int ll_addHead(linked_list_t *list, void *data, size_t size)
+int ll_addHead(linked_list_t *list, link_t *link)
 {
-    if (list == NULL)
-        return EL_ERR_PARAM; 
-    if (data == NULL) 
-        return EL_ERR_PARAM; 
+    PARAM_CHECK (list == NULL);
+    PARAM_CHECK (link == NULL);
+
     if (list->poolSize == 0)
-        return EL_ERR_MEM; 
+        return LL_ERR_MEM;
 
-    link_t *link; 
-    int result = priv_poolRemove(list, &link); 
+    /* Check that the head is really that */
+    if (list->head->before != NULL)
+        return LL_ERR_NEED_RESET;
 
-    if (result) 
-        return result; 
+    /* Set the pointer to the second item in the list */
+    link->after = list->head;
+    /* Assign the new head */
+    list->head = link;
 
-    list->head = link; 
-
-
-    return EL_ERR_NONE;
+    return LL_ERR_NONE;
 }
 
-int ll_addTail()
+int ll_addTail(linked_list_t *list, link_t *link)
 {
 
+    return LL_ERR_NONE;
 }
-
-
-int ll_addBefore()
-{
-}
-
-int ll_addAfter()
-{
-
-}
-
-int ll_removeHead()
-{
-}
-int ll_removeTail()
-{
-}
-
-int ll_removeAt()
-{
-}
-
 
 /**
- * Remove a link from the pool to add to the linked list. 
+ * @brief Remove a link from the pool and return pointer to it
+ * @param link [out]
+ * @param list [in]
  */
-static int priv_poolRemove(const linked_list_t *list, link_t **link)
+int ll_reserve(linked_list_t *list, link_t **link)
 {
-    for (int i = 0; i < list->poolSize; i++) 
-    {
-        if (list->pool[i].flags & LL_FLAG_POOL) 
-        {
-            **link = list->pool[i];
-            list->pool[i].flags &= ~LL_FLAG_POOL; 
-            list->poolSize -= 1;
-            return EL_ERR_NONE; 
-        }
-    }
-    return EL_ERR_MEM; 
+    CRITICAL(true);
+    int status = priv_reserve(list, link);
+    CRITICAL(false);
+    return status;
 }
 
-/** 
- * Restore a link back to the pool. 
- */
-static int priv_poolAdd(linked_list_t *list, link_t *add)
+int priv_reserve(linked_list_t *list, link_t **link)
 {
-    for (int i = 0; i < list->poolSize; i++) 
+    PARAM_CHECK (list == NULL);
+    PARAM_CHECK (link == NULL);
+
+    if (list->poolSize == 0)
+        return LL_ERR_MEM;
+
+    if (list->head.before != NULL)
+        return LL_ERR_NEED_RESET;
+
+    int index;
+    for (index = 0; index < list->poolSize; index++)
     {
-        /* match the pointers */ 
-        if (&list->pool[i] == add) 
+        if (list->pool[index].state == LL_STATE_POOL)
+            break;
+    }
+    if (index >= list->poolSize) {
+        *link = NULL;
+        return LL_ERR_MEM;
+    }
+
+    list->poolSize -= 1;
+    *link = list->pool[index];
+    *link->state = LL_STATE_RESERVED;
+
+    /* Set the pointer to the second item in the list */
+    link->after = list->head;
+    /* Assign the new head */
+    list->head = link;
+
+    return LL_ERR_NONE;
+}
+
+/**
+ * @brief Restore a link back to the pool.
+ */
+static int priv_poolAdd(linked_list_t *list, link_t *link)
+{
+    for (int i = 0; i < list->poolSize; i++)
+    {
+        /* match the pointers */
+        if (&list->pool[i] == add)
         {
-            list->pool[i].flags |= LL_FLAG_POOL; 
+            list->pool[i].privFlags |= LL_FLAG_PRIV_POOL;
             list->poolSize += 1;
-            return EL_ERR_NONE; 
+            return LL_ERR_NONE;
         }
     }
-    return EL_ERR_FAILED; 
+    return LL_ERR_FAILED;
 }
+
+
+
+
