@@ -46,18 +46,18 @@ typedef struct link_s
 {
     struct link_s   *before;
     struct link_s   *after;
-    uint8_t 	      state;
+    uint8_t 	     state;
     uint8_t          flags;
-    uint8_t                  *data;
-    size_t                    size;
+    uint8_t         *data;
+    size_t           size;
 } link_t;
 
 typedef struct linked_list_s
 {
     link_t       *head;
     link_t       *tail;
-    link_t               **pool;
-    size_t                 poolSize;
+    link_t      **pool;
+    size_t        poolSize;
 } linked_list_t;
 
 
