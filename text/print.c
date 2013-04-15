@@ -3,16 +3,16 @@
 *******************************************************************************/
 #include "print.h"
 #include <stdio.h>
+#include <stdint.h>
 
 /*******************************************************************************
 * Defines
 *******************************************************************************/
-#define STACK_BUFFER_SIZE 128;
+#define STACK_BUFFER_SIZE 128
 
 /*******************************************************************************
 * Local Types and Typedefs
 *******************************************************************************/
-typedef int (* print_fn_t) (const void *, size_t);
 
 /*******************************************************************************
 * Global Variables
@@ -32,7 +32,7 @@ static print_fn_t printFn = NULL;
 *******************************************************************************/
 
 
-int el_printInit(void *printFunction)
+int el_printInit(print_fn_t printFunction)
 {
     if (printFunction == NULL)
         return -1;
@@ -50,7 +50,7 @@ int el_print(const void *format, ...)
     va_list args;
     va_start(args, format);
 
-    uint8_t buffer[STACK_BUFFER_SIZE];
+    char buffer[STACK_BUFFER_SIZE];
 
     vsnprintf(buffer, STACK_BUFFER_SIZE, format, args);
     status = printFn(buffer, strlen(buffer));

@@ -4,5 +4,7 @@
 #include <stdarg.h>
 
 
-int el_printInit(void *printFunction);
+typedef int (* print_fn_t) (const void *, size_t);
+
+int el_printInit(print_fn_t printFunction);
 int el_print(const void *format, ...);

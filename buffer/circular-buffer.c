@@ -44,8 +44,10 @@
  ******************************************************************************/
 static inline void priv_incrementRead(cb_t *cb) ATTR_INLINE;
 static inline void priv_incrementWrite(cb_t *cb) ATTR_INLINE;
+#if QUICK_READ
 static inline void priv_incQuickRead(cb_t *cb) ATTR_INLINE;
 static inline void priv_incQuickWrite(cb_t *cb) ATTR_INLINE;
+#endif
 
 /******************************************************************************
  * Static Variables 
