@@ -30,7 +30,11 @@
  /*************************************************************************
   * Static Function Prototypes
   *************************************************************************/
-
+static int priv_reserve(linked_list_t *list, link_t **link);
+static int priv_release(linked_list_t *list, link_t *link);
+static int priv_pushTail(linked_list_t *list, link_t *link);
+static int priv_pushHead(linked_list_t *list, link_t *link);
+static int priv_pullTail(linked_list_t *list, link_t **link);
 
  /*************************************************************************
   * Static Variables
@@ -41,9 +45,12 @@ static critical_t *critical = NULL;
   * Functions
   *************************************************************************/
 
+
+/*******************************************************************************
+* Create
+*******************************************************************************/
 int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_t *criticalFunction)
 {
-
     PARAM_CHECK (list == NULL);
     PARAM_CHECK (links == NULL);
     PARAM_CHECK (length == 0);
@@ -55,39 +62,152 @@ int ll_create(linked_list_t *list, link_t *links[], size_t linksCount, critical_
     list->pool = links;
     list->poolSize = linksCount;
 
+    for (int i = 0; i < list->poolSize; i++) {
+        list->pool[i]->state = LL_STATE_POOL;
+        list->pool[i]->flags = 0;
+        list->pool[i]->before = NULL;
+        list->pool[i]->after = NULL;
+    }
+
     return LL_ERR_NONE;
 }
 
-int ll_addHead(linked_list_t *list, link_t *link)
+/*******************************************************************************
+* Pull
+*******************************************************************************/
+int priv_pullHead(linked_list_t *list, link_t **link)
+{
+    PARAM_CHECK(list == NULL);
+    PARAM_CHECK(link == NULL);
+    PARAM_CHECK(list->head == NULL);
+
+    link_t *link = list->head;
+
+    if (list->head == list->tail){
+        /* Only item in queue */
+        list->head == NULL;
+        list->tail == NULL;
+    } else {
+        list->head = list->head->after;
+        list->head->before = NULL;
+    }
+
+    *link->after = NULL;
+    *link->before = NULL;
+    *link->state = LL_STATE_RESERVED;
+    return LL_ERR_NONE;
+}
+
+int priv_pullTail(linked_list_t *list, link_t **link)
+{
+    PARAM_CHECK(list == NULL);
+    PARAM_CHECK(link == NULL);
+    PARAM_CHECK(list->tail == NULL);
+
+    link_t *link = list->tail;
+
+    if (list->head == list->tail){
+        /* Only item in queue */
+        list->head == NULL;
+        list->tail == NULL;
+    } else {
+        list->tail = list->tail->before;
+        list->tail->after = NULL;
+    }
+
+    *link->after = NULL;
+    *link->before = NULL;
+    *link->state = LL_STATE_RESERVED;
+    return LL_ERR_NONE;
+}
+
+/*******************************************************************************
+* Push
+*******************************************************************************/
+int ll_pushHead(linked_list_t *list, link_t *link)
+{
+    CRITICAL(true);
+    int status = priv_addHead(list, link);
+    CRITICAL(false);
+    return status;
+}
+
+static int priv_pushHead(linked_list_t *list, link_t *link)
 {
     PARAM_CHECK (list == NULL);
     PARAM_CHECK (link == NULL);
 
-    if (list->poolSize == 0)
+    if (list->head == list->tail){
+        /* Only item in the list, its both head and tail */
+        list->head = link;
+        list->tail = link;
+        link->before == NULL;
+        link->tail == NULL;
+    } else {
+        /* Set the pointer to the second item in the list */
+        link->after = list->head;
+        link->before = NULL;
+
+        /* Update the previous head */
+        list->head->before = link;
+        /* Assign the new head */
+        list->head = link;
+    }
+
+    link->state = LL_STATE_LIST;
+    return LL_ERR_NONE;
+}
+
+int ll_pushTail(linked_list_t *list, link_t *link)
+{
+    CRITICAL(true);
+    int status = priv_addTail(list, link);
+    CRITICAL(false);
+    return status;
+}
+
+static int priv_pushTail(linked_list_t *list, link_t *link)
+{
+    PARAM_CHECK (list == NULL);
+    PARAM_CHECK (link == NULL);
+
+    if (list->poolSize == NULL)
         return LL_ERR_MEM;
 
-    /* Check that the head is really that */
-    if (list->head->before != NULL)
-        return LL_ERR_NEED_RESET;
+    if (list->head == list->tail){
+        /* Only item in the list, its both head and tail */
+        list->head = link;
+        list->tail = link;
+        link->before == NULL;
+        link->tail == NULL;
+    } else {
+        /* Set the pointer to the second to last item in the list */
+        link->before = list->tail;
+        link->after = NULL;
+        /* Update the previous tail */
+        list->tail->after = link;
+        /* Assign the new head */
+        list->tail = link;
+    }
 
-    /* Set the pointer to the second item in the list */
-    link->after = list->head;
-    /* Assign the new head */
-    list->head = link;
+    if (list->head == NULL)
+        list->head = list->tail;
 
+    link->state = LL_STATE_LIST;
     return LL_ERR_NONE;
 }
 
-int ll_addTail(linked_list_t *list, link_t *link)
-{
-
-    return LL_ERR_NONE;
-}
+/*******************************************************************************
+* Reserve and Release
+*******************************************************************************/
 
 /**
  * @brief Remove a link from the pool and return pointer to it
  * @param link [out]
  * @param list [in]
+ *
+ * Using a wrapper function to make returning on error easier
+ * with the criticals
  */
 int ll_reserve(linked_list_t *list, link_t **link)
 {
@@ -97,16 +217,10 @@ int ll_reserve(linked_list_t *list, link_t **link)
     return status;
 }
 
-int priv_reserve(linked_list_t *list, link_t **link)
+static int priv_reserve(linked_list_t *list, link_t **link)
 {
     PARAM_CHECK (list == NULL);
     PARAM_CHECK (link == NULL);
-
-    if (list->poolSize == 0)
-        return LL_ERR_MEM;
-
-    if (list->head.before != NULL)
-        return LL_ERR_NEED_RESET;
 
     int index;
     for (index = 0; index < list->poolSize; index++)
@@ -119,36 +233,51 @@ int priv_reserve(linked_list_t *list, link_t **link)
         return LL_ERR_MEM;
     }
 
-    list->poolSize -= 1;
     *link = list->pool[index];
     *link->state = LL_STATE_RESERVED;
 
     /* Set the pointer to the second item in the list */
-    link->after = list->head;
-    /* Assign the new head */
-    list->head = link;
+    *link->after = NULL;
+    *link->before = NULL;
 
     return LL_ERR_NONE;
 }
 
 /**
- * @brief Restore a link back to the pool.
+ * @brief Reserve a link with a minimum amount of data.
  */
-static int priv_poolAdd(linked_list_t *list, link_t *link)
+int ll_reserveN(linked_list_t *list, link_t **link, size_t size)
 {
+    return LL_ERR_NOT_IMPL;
+}
+
+int ll_release(linked_list_t *list, link_t *link)
+{
+    CRITICAL(true);
+    int status = priv_release(list, link);
+    CRITICAL(false);
+    return status;
+}
+/**
+ * @brief Restore ONLY a reserved link to the pool.
+ */
+static int priv_release(linked_list_t *list, link_t *link)
+{
+    PARAM_CHECK(list == NULL);
+    PARAM_CHECK(link == NULL);
+    PARAM_CHECK(link->state != LL_STATE_RESERVED);
+
     for (int i = 0; i < list->poolSize; i++)
     {
         /* match the pointers */
-        if (&list->pool[i] == add)
+        if (list->pool[i] == link)
         {
-            list->pool[i].privFlags |= LL_FLAG_PRIV_POOL;
-            list->poolSize += 1;
+            list->pool[i]->state = LL_STATE_POOL;
             return LL_ERR_NONE;
         }
     }
     return LL_ERR_FAILED;
 }
-
 
 
 

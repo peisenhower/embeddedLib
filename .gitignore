@@ -7,3 +7,5 @@ buffer/test
 project/Debug
 project/libembed.dep
 project/settings
+tags
+cscope.out

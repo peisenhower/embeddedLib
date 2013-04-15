@@ -4,8 +4,8 @@
 
 /**
  * @file linked-list.h
- * 
- * @brief Linked List header file
+ *
+ * Linked List header file.
  * Link can be in one for 3 states.
  * Pool: waiting to be used.
  * Reserved: taken by the application being manipulated
@@ -13,7 +13,11 @@
  *
  * Typcially the application will pull a link from the pool and
  * reserve the link. The application will fill in the data and push
- * the link to the list. 
+ * the link to the list. Another program can get items from the list which
+ * will come out as reserved. When done with the data it can be released back
+ * to the pool.
+ *
+ * POOL -> RESERVED -> LIST -> RESERVED -> POOL ...
  *
  * From the list another part of the application or an ISR will dequeue the data
  * and return it to the pool. Alternatively the application could decide the 
@@ -37,22 +41,22 @@ typedef enum {
 } ll_state_t
 
 
-typedef volatile struct link_s
+typedef struct link_s
 {
-    struct link_s   *before;
-    struct link_s   *after;
-    uint8_t 	     state;
-    uint8_t          flags;
-    uint8_t         *data;
-    size_t           size;
+    volatile struct link_s   *before;
+    volatile struct link_s   *after;
+    volatile uint8_t 	      state;
+    volatile uint8_t          flags;
+    uint8_t                  *data;
+    size_t                    size;
 } link_t;
 
-typedef volatile struct linked_list_s
+typedef struct linked_list_s
 {
-    link_t      *head;
-    link_t      *tail;
-    link_t      *pool[];
-    size_t       poolSize;
+    volatile link_t      *head;
+    volatile link_t      *tail;
+    link_t               *pool[];
+    size_t                poolSize;
 } linked_list_t;
 
 
@@ -63,6 +67,7 @@ enum
     LL_ERR_MEM          = -2,
     LL_ERR_PARAM        = -3,
     LL_ERR_NEED_RESET   = -4,
+    LL_ERR_NOT_IMPL     = -5,
 };
 
 
